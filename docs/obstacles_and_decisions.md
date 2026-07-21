@@ -22,16 +22,6 @@ This document records material implementation decisions, external-source limitat
 
 **Result:** The country enrichment client calls the v5 endpoint and uses bearer-token authentication.
 
-## REST Countries Demo Key Limitation
-
-**Issue:** The REST Countries v5 demo key returns example data rather than guaranteed real enrichment for the requested country.
-
-**Why it matters:** Treating demo data as real merchant enrichment would be misleading.
-
-**Decision:** Support `RESTCOUNTRIES_API_KEY` for real enrichment and return a clear fallback when only the demo key is available.
-
-**Result:** A real key can enrich country code, region, and subregion; reviewers without a key still get honest fallback behavior.
-
 ## Country Name Normalization
 
 **Issue:** The source CSV uses `Czech Republic`, while REST Countries v5 expects the common name `Czechia`.
