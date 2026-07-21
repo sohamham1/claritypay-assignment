@@ -2,10 +2,33 @@ from reporting.llm_report import build_underwriting_prompt, generate_underwritin
 
 
 def test_llm_prompt_includes_pipeline_output():
-    prompt = build_underwriting_prompt({"portfolio": {"merchant_count": 2}})
+    prompt = build_underwriting_prompt(
+        {
+            "portfolio": {"merchant_count": 2},
+            "collated": {
+                "rows": [
+                    {
+                        "website_client_names": ["JetBlue"],
+                        "website_partner_names": ["DR Bank"],
+                        "website_public_stats": [
+                            {
+                                "label": "approval_coverage",
+                                "value": "85% True Approvals",
+                                "context": "Approval coverage claim.",
+                                "source_url": "https://www.claritypay.com/for-business",
+                            }
+                        ],
+                    }
+                ]
+            },
+        }
+    )
 
     assert "underwriting report" in prompt
     assert "merchant_count" in prompt
+    assert "JetBlue" in prompt
+    assert "DR Bank" in prompt
+    assert "85% True Approvals" in prompt
 
 
 def test_missing_openai_key_saves_prompt_and_placeholder_report(tmp_path, monkeypatch):

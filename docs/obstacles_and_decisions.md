@@ -82,15 +82,15 @@ This document records material implementation decisions, external-source limitat
 
 **Result:** The scraper crawls multiple public ClarityPay pages respectfully and records failures without stopping the pipeline.
 
-## Website Stats Availability
+## Website Evidence Under-Extraction
 
-**Issue:** The current ClarityPay public site did not clearly expose the sample stats named in the assignment text.
+**Issue:** The first scraper pass crawled multiple ClarityPay pages but under-extracted useful public evidence because it focused on visible text phrases and did not properly use logo alt text, newsroom copy, or context-aware statistic labels.
 
-**Why it matters:** Phone numbers, addresses, and copyright years should not be misclassified as business stats.
+**Why it matters:** The assignment asks for partner/client names and public stats if available. At the same time, underwriting evidence must not treat random website numbers as risk facts.
 
-**Decision:** Extract public stats only when they match clear business-stat labels.
+**Decision:** Extract client names, ecosystem partners, and only BNPL-underwriting-relevant stats with labels, context, and source URLs. Exclude phone numbers, dates, addresses, form dropdown values, NMLS IDs, and other irrelevant numbers.
 
-**Result:** The scraper returns an empty stats list when no high-confidence public stats are found.
+**Result:** The website context now carries structured client/partner names and sourced public stats that are useful for understanding ClarityPay's merchant financing ecosystem.
 
 ## Small Dataset Modeling Caveat
 

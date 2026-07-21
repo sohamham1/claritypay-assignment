@@ -32,8 +32,8 @@ The model and portfolio summary are intentionally simple, but they connect merch
 ## Tradeoffs
 
 - The model is simple by design. Logistic regression is easier to explain and more appropriate for a small dataset than a complex model.
-- The ClarityPay scraper crawls multiple public pages, but parsing is conservative because public website HTML can change.
-- Public stats are only extracted when they match high-confidence business-stat labels.
+- The ClarityPay scraper crawls public site and newsroom pages, but parsing is conservative because public website HTML can change.
+- Public stats are extracted only when they are relevant to BNPL merchant underwriting and can be stored with context, such as approval coverage, merchant conversion impact, financing range, rollout footprint, or funding capacity.
 - Source fallback/status fields are preserved instead of hidden so downstream users can see when enrichment was unavailable.
 - Generated outputs are written locally under `outputs/` and are not committed by default.
 

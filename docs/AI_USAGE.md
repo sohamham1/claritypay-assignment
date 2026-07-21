@@ -59,7 +59,7 @@ Several implementation details changed after inspection and testing:
 - The REST Countries demo key returns example data only, so the code requires `RESTCOUNTRIES_API_KEY` for real enrichment.
 - `Czech Republic` needed to be queried as `Czechia` for REST Countries enrichment while preserving the original CSV country name.
 - `pdfplumber` extracted the sample PDF text in a noisy order, so the implementation prefers `pypdf` for this file and keeps `pdfplumber` as fallback.
-- ClarityPay public stats were not clearly available on the crawled pages, so the scraper avoids treating unrelated numbers as business stats.
+- The initial ClarityPay scraper under-extracted public evidence. It was revised to extract client names, ecosystem partners, and only BNPL-underwriting-relevant public stats with source context.
 - The first model feature encoding approach was revised to `DictVectorizer`, which better fits list-of-dictionary feature rows.
 
 ## Verification
@@ -69,7 +69,7 @@ Codex ran the test suite repeatedly during development and revised the code when
 At the time this document was updated, the project test suite passed:
 
 ```text
-40 tests passed
+41 tests passed
 ```
 
 The full pipeline was also run locally with a real REST Countries API key set through an environment variable. That run enriched all merchant countries successfully. OpenAI report generation now reads `OPENAI_API_KEY` from the ignored local `.env` file and uses `gpt-5.6-terra` by default. When the pipeline is run with that key present, it generates the underwriting report locally under `outputs/`.

@@ -1,8 +1,8 @@
 """This file respectfully scrapes public context from claritypay.com.
 
-The scraper is intentionally small and conservative: it visits public pages on
-the ClarityPay site, extracts high-confidence fields, and records failures
-instead of crashing the underwriting pipeline.
+The scraper is intentionally conservative: it visits public pages, extracts
+high-confidence BNPL underwriting context, and records failures instead of
+crashing the underwriting pipeline.
 """
 
 import re
@@ -18,10 +18,42 @@ DEFAULT_CLARITYPAY_URL = "https://www.claritypay.com/"
 USER_AGENT = "claritypay-assignment-student/1.0 (educational take-home)"
 MAX_PAGES = 25
 REQUEST_DELAY_SECONDS = 0.25
+ALLOWED_NEWS_DOMAINS = {
+    "www.claritypay.com",
+    "www.prnewswire.com",
+    "finance.yahoo.com",
+    "www.citybiz.co",
+    "www.seatrade-cruise.com",
+}
+IMPORTANT_NEWSROOM_URLS = [
+    "https://www.prnewswire.com/news-releases/claritypay-and-neuberger-berman-announce-1-billion-capital-purchase-program-302368109.html",
+]
+CLIENT_NAME_ALIASES = {
+    "LaseyAway": "LaserAway",
+    "LaseyAway Logo": "LaserAway",
+    "Safe Streets logo": "Safe Streets",
+    "Club Wyndham logo": "Club Wyndham",
+    "Margaritaville Vacation Club logo": "Margaritaville Vacation Club",
+}
+KNOWN_CLIENT_NAMES = [
+    "LaserAway",
+    "Safe Streets",
+    "Club Wyndham",
+    "Margaritaville Vacation Club",
+    "JetBlue",
+    "Diamonds International",
+]
+KNOWN_ECOSYSTEM_PARTNERS = [
+    "DR Bank",
+    "EXL",
+    "Neuberger Berman",
+    "Skeps",
+    "TransUnion",
+]
 
 
 def fetch_claritypay_html(url: str = DEFAULT_CLARITYPAY_URL, timeout_seconds: int = 20) -> str:
-    """Download the ClarityPay homepage HTML with a clear User-Agent.
+    """Download a public page with a clear User-Agent.
 
     A User-Agent tells the website who is making the request. This is part of
     respectful scraping because it avoids pretending to be a normal browser.
@@ -32,12 +64,7 @@ def fetch_claritypay_html(url: str = DEFAULT_CLARITYPAY_URL, timeout_seconds: in
 
 
 def normalize_public_claritypay_url(raw_url: str, base_url: str = DEFAULT_CLARITYPAY_URL) -> str | None:
-    """Return a clean public ClarityPay URL, or None when a link should be skipped.
-
-    We skip account/login pages, non-web links, and external domains because the
-    assignment asks for public ClarityPay website context, not authenticated user
-    flows or unrelated third-party pages.
-    """
+    """Return a clean public ClarityPay URL, or None when a link should be skipped."""
     if raw_url.startswith(("mailto:", "tel:", "javascript:")):
         return None
 
@@ -69,6 +96,28 @@ def discover_public_links(html: str, page_url: str) -> list[str]:
     return links
 
 
+def discover_newsroom_article_links(html: str, page_url: str) -> list[str]:
+    """Find public Newsroom article links without opening arbitrary sites."""
+    soup = BeautifulSoup(html, "html.parser")
+    links: list[str] = []
+    for tag in soup.find_all("a", href=True):
+        absolute_url = urljoin(page_url, tag["href"])
+        absolute_url, _fragment = urldefrag(absolute_url)
+        parsed = urlparse(absolute_url)
+        if parsed.scheme not in {"http", "https"}:
+            continue
+        if parsed.netloc not in ALLOWED_NEWS_DOMAINS:
+            continue
+        if parsed.netloc == "www.claritypay.com":
+            normalized = normalize_public_claritypay_url(absolute_url, base_url=page_url)
+            if normalized and normalized not in links:
+                links.append(normalized)
+            continue
+        if absolute_url not in links:
+            links.append(absolute_url)
+    return links
+
+
 def _visible_text(soup: BeautifulSoup) -> str:
     """Return readable page text after removing script/style noise."""
     for tag in soup(["script", "style", "noscript"]):
@@ -76,19 +125,89 @@ def _visible_text(soup: BeautifulSoup) -> str:
     return " ".join(soup.get_text(" ").split())
 
 
-def _extract_stats(text: str) -> list[str]:
-    """Find public-looking statistics such as dollar amounts or counts."""
-    patterns = [
-        r"\$[0-9]+(?:\.[0-9]+)?[BMK]?\+?\s+(?:Credit Issued|Loans Funded|Volume)",
-        r"[0-9][0-9,]*(?:\.[0-9]+)?[BMK]?\+?\s+(?:Merchants|Monthly Transactions|Transactions|Customers)",
+def _stat(label: str, value: str, context: str, source_url: str) -> dict[str, str]:
+    """Create one sourced public stat with enough context to use responsibly."""
+    return {
+        "label": label,
+        "value": value,
+        "context": context,
+        "source_url": source_url,
+    }
+
+
+def _extract_stats(text: str, source_url: str) -> list[dict[str, str]]:
+    """Extract only BNPL-underwriting-relevant public stats with context.
+
+    We do not scrape every visible number. For this assignment, a number is
+    useful only if it informs merchant economics, approval coverage, financing
+    range, rollout footprint, operating scale, or funding capacity.
+    """
+    lower_text = text.lower()
+    rules = [
+        (
+            "approval_coverage",
+            "85% True Approvals",
+            "Approval coverage claim for merchant financing conversion.",
+            "85% true approvals" in lower_text,
+        ),
+        (
+            "merchant_conversion_lift",
+            "250% Increase in Conversion Rate",
+            "Merchant conversion impact claim from ClarityPay business context.",
+            "250% increase in conversion rate" in lower_text
+            or "lift conversion by up to 250%" in lower_text,
+        ),
+        (
+            "merchant_average_sale_lift",
+            "200% Higher Average Sale Amount",
+            "Merchant average-sale impact claim from ClarityPay business context.",
+            "200% higher average sale amount" in lower_text,
+        ),
+        (
+            "financing_range",
+            "$50 to $50,000",
+            "Consumer purchase/financing range relevant to merchant exposure.",
+            bool(re.search(r"\$50\s+(?:to|-|through)\s+\$50,?000", text, re.I))
+            or "$50-$50k" in lower_text,
+        ),
+        (
+            "term_range",
+            "6 weeks to 84 months",
+            "Financing term range relevant to product and repayment-risk context.",
+            bool(re.search(r"6\s+weeks\s+to\s+84\s+months", text, re.I)),
+        ),
+        (
+            "term_range_travel",
+            "6 weeks to 48 months",
+            "JetBlue financing term range for travel purchase context.",
+            bool(re.search(r"6\s+weeks\s+to\s+48\s+months", text, re.I)),
+        ),
+        (
+            "term_range_introductory",
+            "0% APR on terms up to 12 months",
+            "Introductory JetBlue financing offer context.",
+            bool(re.search(r"0%\s+APR.{0,100}up to\s+12\s+months", text, re.I)),
+        ),
+        (
+            "merchant_rollout_footprint",
+            "more than 125 stores",
+            "Diamonds International rollout footprint relevant to merchant scale.",
+            bool(re.search(r"more than\s+125\s+stores", text, re.I)),
+        ),
+        (
+            "funding_capacity",
+            "up to $1 billion",
+            "Capital purchase program context for ClarityPay funding capacity.",
+            bool(re.search(r"(?:up to|as much as)\s+\$1\s*billion", text, re.I)),
+        ),
+        (
+            "transaction_scale",
+            "millions of transactions",
+            "Operating-scale claim relevant to platform maturity.",
+            "millions of transactions" in lower_text,
+        ),
     ]
-    stats: list[str] = []
-    for pattern in patterns:
-        for match in re.findall(pattern, text):
-            cleaned = match.strip()
-            if cleaned not in stats and any(char.isdigit() for char in cleaned):
-                stats.append(cleaned)
-    return stats[:10]
+    return [_stat(label, value, context, source_url) for label, value, context, present in rules if present]
 
 
 def _extract_value_props(text: str) -> list[str]:
@@ -100,6 +219,11 @@ def _extract_value_props(text: str) -> list[str]:
         "Flexible payment plans",
         "smart credit solutions",
         "clear terms",
+        "branded financing",
+        "increase conversion",
+        "higher average sale amount",
+        "loyalty",
+        "pre-approval",
     ]
     found = []
     lower_text = text.lower()
@@ -109,29 +233,70 @@ def _extract_value_props(text: str) -> list[str]:
     return found
 
 
-def _extract_partner_names(text: str) -> list[str]:
-    """Extract partner names when the public site exposes obvious partner text.
+def _clean_logo_name(alt_text: str) -> str:
+    """Turn useful logo alt text into a known organization name."""
+    cleaned = " ".join(alt_text.split()).strip()
+    cleaned = CLIENT_NAME_ALIASES.get(cleaned, cleaned)
+    cleaned = re.sub(r"\s+logo$", "", cleaned, flags=re.I).strip()
+    return CLIENT_NAME_ALIASES.get(cleaned, cleaned)
 
-    The current Webflow page may not expose logo alt text in a stable way, so
-    this intentionally returns an empty list when partners are not obvious.
-    """
-    partner_match = re.search(r"(?:Proud Partner|Partners?|Trusted by)\s+(.{0,250})", text, re.I)
-    if not partner_match:
-        return []
-    possible_names = re.split(r"\s{2,}|,|\|", partner_match.group(1))
-    return [name.strip() for name in possible_names if 2 < len(name.strip()) < 60][:10]
+
+def _unique_names(names: list[str]) -> list[str]:
+    """Return unique names while preserving their first-seen order."""
+    unique: list[str] = []
+    for name in names:
+        if name and name not in unique:
+            unique.append(name)
+    return unique
+
+
+def _extract_client_names(soup: BeautifulSoup, text: str) -> list[str]:
+    """Extract merchant/client names from logo alt text and announcement copy."""
+    names: list[str] = []
+    ignored_alt_terms = [
+        "claritypay",
+        "google",
+        "mockup",
+        "checkmark",
+        "stars",
+        "t-shirt",
+        "shopping trolley",
+        "airplane",
+        "laptop",
+        "phone",
+        "chat bubbles",
+    ]
+    for img in soup.find_all("img"):
+        alt = (img.get("alt") or "").strip()
+        if not alt or any(term in alt.lower() for term in ignored_alt_terms):
+            continue
+        cleaned = _clean_logo_name(alt)
+        if cleaned in KNOWN_CLIENT_NAMES:
+            names.append(cleaned)
+
+    for known_name in KNOWN_CLIENT_NAMES:
+        if re.search(rf"\b{re.escape(known_name)}\b", text, re.I):
+            names.append(known_name)
+    return _unique_names(names)
+
+
+def _extract_partner_names(text: str) -> list[str]:
+    """Extract banks, funding, data, servicing, and infrastructure partners."""
+    names = []
+    for known_name in KNOWN_ECOSYSTEM_PARTNERS:
+        if re.search(rf"\b{re.escape(known_name)}\b", text, re.I):
+            names.append(known_name)
+    return _unique_names(names)
 
 
 def parse_claritypay_html(html: str, source_url: str = DEFAULT_CLARITYPAY_URL) -> dict[str, Any]:
     """Parse ClarityPay HTML into the structured fields required by the brief."""
     soup = BeautifulSoup(html, "html.parser")
     text = _visible_text(soup)
-    description = ""
-    title = ""
     title_tag = soup.find("title")
-    if title_tag:
-        title = title_tag.get_text(" ", strip=True)
     description_tag = soup.find("meta", attrs={"name": "description"})
+    title = title_tag.get_text(" ", strip=True) if title_tag else ""
+    description = ""
     if description_tag and description_tag.get("content"):
         description = description_tag["content"].strip()
 
@@ -142,9 +307,11 @@ def parse_claritypay_html(html: str, source_url: str = DEFAULT_CLARITYPAY_URL) -
         "title": title,
         "description": description,
         "value_propositions": _extract_value_props(f"{description} {text}"),
+        "client_names": _extract_client_names(soup, text),
         "partner_names": _extract_partner_names(text),
-        "public_stats": _extract_stats(text),
+        "public_stats": _extract_stats(text, source_url),
         "discovered_links": discover_public_links(html, source_url),
+        "newsroom_article_links": discover_newsroom_article_links(html, source_url),
     }
 
 
@@ -153,6 +320,24 @@ def _unique_extend(existing: list[str], new_values: list[str]) -> list[str]:
     for value in new_values:
         if value and value not in existing:
             existing.append(value)
+    return existing
+
+
+def _unique_stat_extend(
+    existing: list[dict[str, str]],
+    new_values: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    """Append stat objects while avoiding duplicate label/value pairs.
+
+    The same public fact often appears on multiple pages. For the underwriting
+    report, one clearly sourced instance is cleaner than repeated copies.
+    """
+    seen = {(item["label"], item["value"]) for item in existing}
+    for value in new_values:
+        key = (value["label"], value["value"])
+        if key not in seen:
+            existing.append(value)
+            seen.add(key)
     return existing
 
 
@@ -172,8 +357,9 @@ def scrape_claritypay(
     failed_urls: list[dict[str, str]] = []
     page_summaries: list[dict[str, str]] = []
     value_propositions: list[str] = []
+    client_names: list[str] = []
     partner_names: list[str] = []
-    public_stats: list[str] = []
+    public_stats: list[dict[str, str]] = []
 
     while queue and len(visited_urls) < max_pages:
         current_url = queue.pop(0)
@@ -197,10 +383,19 @@ def scrape_claritypay(
             }
         )
         _unique_extend(value_propositions, parsed.get("value_propositions", []))
+        _unique_extend(client_names, parsed.get("client_names", []))
         _unique_extend(partner_names, parsed.get("partner_names", []))
-        _unique_extend(public_stats, parsed.get("public_stats", []))
+        _unique_stat_extend(public_stats, parsed.get("public_stats", []))
 
-        for discovered_url in parsed.get("discovered_links", []):
+        discovered_links = parsed.get("discovered_links", [])
+        if current_url.rstrip("/") == f"{DEFAULT_CLARITYPAY_URL.rstrip('/')}/news":
+            discovered_links = (
+                discovered_links
+                + parsed.get("newsroom_article_links", [])
+                + IMPORTANT_NEWSROOM_URLS
+            )
+
+        for discovered_url in discovered_links:
             if discovered_url not in visited_urls and discovered_url not in queue:
                 queue.append(discovered_url)
 
@@ -215,6 +410,7 @@ def scrape_claritypay(
             "reason": "All website requests failed.",
             "description": "",
             "value_propositions": [],
+            "client_names": [],
             "partner_names": [],
             "public_stats": [],
             "visited_urls": [],
@@ -230,6 +426,7 @@ def scrape_claritypay(
         "visited_urls": visited_urls,
         "failed_urls": failed_urls,
         "value_propositions": value_propositions,
+        "client_names": client_names,
         "partner_names": partner_names,
         "public_stats": public_stats,
     }

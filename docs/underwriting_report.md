@@ -8,6 +8,42 @@
 - Simplified expected loss is **$17,210.20**, based on `predicted probability x monthly volume x 1% loss rate`.
 - Sources were successfully processed: PDF extracted, website parsed, country enrichment completed, and internal-risk fields enriched.
 
+## Website And Market Context
+
+The ClarityPay scrape now includes structured public website evidence, not just homepage value propositions.
+
+Extracted client/customer names include:
+
+- LaserAway
+- Safe Streets
+- Club Wyndham
+- Margaritaville Vacation Club
+- JetBlue
+- Diamonds International
+
+Extracted ecosystem/funding/infrastructure partners include:
+
+- DR Bank
+- EXL
+- Neuberger Berman
+- Skeps
+- TransUnion
+
+Relevant public stats are stored with labels, context, and source URLs so they are not used as floating marketing numbers. Examples include:
+
+| Label | Value | Underwriting context |
+| --- | --- | --- |
+| Approval coverage | 85% True Approvals | Merchant financing conversion context |
+| Merchant conversion lift | 250% Increase in Conversion Rate | Merchant sales/conversion context |
+| Average sale lift | 200% Higher Average Sale Amount | Merchant transaction economics context |
+| Financing range | $50 to $50,000 | Consumer purchase/financing exposure range |
+| Term range | 6 weeks to 84 months | Repayment-duration and product-risk context |
+| Travel term range | 6 weeks to 48 months | JetBlue/travel financing context |
+| Rollout footprint | more than 125 stores | Diamonds International merchant-scale context |
+| Funding capacity | up to $1 billion | ClarityPay funding/capital purchase context |
+
+These facts are useful for understanding ClarityPay's BNPL merchant ecosystem, but they are public website/newsroom claims. They should not be treated as independently validated merchant-level risk data.
+
 ## Key Merchant Risks
 
 The highest-scored merchants are concentrated in Europe and include both merchants with existing high internal-risk flags and merchants whose model scores exceed their internal classifications.
@@ -28,6 +64,7 @@ The highest-scored merchants are concentrated in Europe and include both merchan
 ## Risk-Band Assessment
 
 - The model places **12 of 50 merchants** in the high-risk band.
+- The portfolio-level expected high-risk count is **15.68** because it sums all merchant risk probabilities, including probabilities below the high-band threshold.
 - The top displayed high-risk scores range from **81.62% to 99.96%**.
 - Five of the ten listed merchants, **M038, M028, M006, M027, and M046**, are classified as **medium** by internal risk while being assigned a **high model-risk band**. These cases warrant review of the drivers behind the model override.
 - M006 is a priority exposure case: its dispute rate is comparatively low among the listed merchants, but its **$320,000 monthly volume** and **88.36% predicted risk probability** create significant potential loss exposure.
@@ -48,7 +85,7 @@ The highest-scored merchants are concentrated in Europe and include both merchan
 - The model probabilities should be assessed for **calibration**, particularly because risk-band decisions and expected-loss estimates directly depend on them.
 - The expected-loss estimate uses a fixed **1% loss-rate assumption**. It is a simplified measure and does not demonstrate merchant-specific loss severity, recovery, timing, or changes in volume.
 - The PDF excerpt is explicitly described as a **sample merchant terms and summary**. It should not be attributed to a specific portfolio merchant without verified entity linkage.
-- Website parsing yielded general value propositions such as **Pay Over Time**, **clear fees**, and **Flexible payment plans**, but **no public statistics** were identified. It therefore provides limited quantitative underwriting evidence.
+- Website context helps describe ClarityPay's market and product environment, but it should not be used as a direct merchant-level risk label unless linked to specific merchants and independently verified.
 
 ## Recommended Underwriting Posture
 

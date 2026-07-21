@@ -51,6 +51,8 @@ def _merge_merchant_sources(
         "pdf_context_excerpt": pdf_context.get("text", "")[:500],
         "website_context_status": website_context.get("status", "unknown"),
         "website_value_propositions": website_context.get("value_propositions", []),
+        "website_client_names": website_context.get("client_names", []),
+        "website_partner_names": website_context.get("partner_names", []),
         "website_public_stats": website_context.get("public_stats", []),
         "website_visited_urls": website_context.get("visited_urls", []),
     }

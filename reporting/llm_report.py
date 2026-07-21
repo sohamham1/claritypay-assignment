@@ -31,6 +31,8 @@ def _report_context(pipeline_output: dict[str, Any]) -> dict[str, Any]:
         "top_risk_merchants": top_risk_merchants,
         "pdf_context_excerpt": first_row.get("pdf_context_excerpt", ""),
         "website_value_propositions": first_row.get("website_value_propositions", []),
+        "website_client_names": first_row.get("website_client_names", []),
+        "website_partner_names": first_row.get("website_partner_names", []),
         "website_public_stats": first_row.get("website_public_stats", []),
         "website_visited_urls": first_row.get("website_visited_urls", []),
     }
