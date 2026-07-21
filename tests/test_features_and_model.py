@@ -1,5 +1,5 @@
 from features.build_features import build_feature_rows, high_dispute_risk_target, volume_band
-from model.risk_model import aggregate_portfolio_risk, train_risk_model
+from model.risk_model import NUMERIC_FEATURES, aggregate_portfolio_risk, train_risk_model
 
 
 def _sample_collated_rows():
@@ -11,6 +11,7 @@ def _sample_collated_rows():
                 "monthly_volume": 50000 + index * 10000,
                 "transaction_count": 1000 + index * 100,
                 "dispute_count": index % 6,
+                "registration_number": f"REG{index:03d}" if index % 2 == 0 else "",
                 "country_region": "Europe" if index % 2 == 0 else "Americas",
                 "internal_risk_flag": ["low", "medium", "high"][index % 3],
             }
@@ -30,7 +31,21 @@ def test_build_feature_rows_adds_dispute_rate_and_target():
     feature_rows = build_feature_rows(_sample_collated_rows())
 
     assert feature_rows[0]["dispute_rate"] == 0
+    assert "dispute_count" in feature_rows[0]
     assert "target_high_dispute_risk" in feature_rows[0]
+
+
+def test_build_feature_rows_adds_registration_number_flag():
+    feature_rows = build_feature_rows(_sample_collated_rows())
+
+    assert feature_rows[0]["has_registration_number"] == 1
+    assert feature_rows[1]["has_registration_number"] == 0
+
+
+def test_model_inputs_exclude_target_defining_dispute_fields():
+    assert "dispute_count" not in NUMERIC_FEATURES
+    assert "dispute_rate" not in NUMERIC_FEATURES
+    assert "has_registration_number" in NUMERIC_FEATURES
 
 
 def test_model_training_returns_scored_merchants_and_metrics():

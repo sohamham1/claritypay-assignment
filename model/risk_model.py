@@ -9,7 +9,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
 
-NUMERIC_FEATURES = ["monthly_volume", "transaction_count", "dispute_count", "dispute_rate"]
+# dispute_count and dispute_rate are intentionally excluded here.
+# They define the target label, so using them as model inputs would leak the
+# answer into training and make the metrics look stronger than they really are.
+NUMERIC_FEATURES = ["monthly_volume", "transaction_count", "has_registration_number"]
 CATEGORICAL_FEATURES = ["volume_band", "country_region", "internal_risk_flag"]
 
 
@@ -18,6 +21,8 @@ def train_risk_model(feature_rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     Logistic regression is intentionally simple: it is easier to explain in an
     interview than a complex model, which matters for a small take-home dataset.
+    The model uses non-leaky features only; dispute fields stay in the output
+    for reporting but are not used as prediction inputs.
     """
     X = [
         {feature: row[feature] for feature in NUMERIC_FEATURES + CATEGORICAL_FEATURES}

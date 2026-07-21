@@ -23,10 +23,16 @@ def high_dispute_risk_target(dispute_count: int, transaction_count: int) -> int:
 
 
 def build_feature_rows(collated_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Create one feature row per merchant for model training and scoring."""
+    """Create one feature row per merchant for model training and scoring.
+
+    The feature row keeps dispute_count and dispute_rate for reporting and for
+    creating the target label. The model itself must not train on those two
+    fields because they directly define the target.
+    """
     feature_rows = []
     for row in collated_rows:
         dispute_rate = row["dispute_count"] / row["transaction_count"]
+        registration_number = str(row.get("registration_number") or "").strip()
         feature_rows.append(
             {
                 "merchant_id": row["merchant_id"],
@@ -37,6 +43,9 @@ def build_feature_rows(collated_rows: list[dict[str, Any]]) -> list[dict[str, An
                 "volume_band": volume_band(row["monthly_volume"]),
                 "country_region": row.get("country_region", "unknown"),
                 "internal_risk_flag": row.get("internal_risk_flag", "unknown"),
+                # A missing registration number is not automatically invalid for
+                # every country, but it is useful KYB/data-quality context.
+                "has_registration_number": int(bool(registration_number)),
                 "target_high_dispute_risk": high_dispute_risk_target(
                     row["dispute_count"],
                     row["transaction_count"],

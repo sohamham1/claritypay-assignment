@@ -2,94 +2,79 @@
 
 ## Portfolio Overview
 
-- **50 merchants** assessed.
-- Model estimates **15.68 expected high-risk merchants**.
-- **12 merchants** are currently assigned to the **high-risk band**.
-- Simplified expected loss is **$17,210.20**, based on `predicted probability x monthly volume x 1% loss rate`.
-- Sources were successfully processed: PDF extracted, website parsed, country enrichment completed, and internal-risk fields enriched.
+- Merchants assessed: **50**
+- Model-expected high-risk merchants: **15.83**
+- Model high-risk band: **5 merchants**
+- Simple expected monthly loss: **$17,159.13**, calculated as `predicted probability x monthly volume x 1% assumed loss rate`
+- Data sources processed: PDF extracted, website parsed, country enrichment completed, and internal-risk data enriched.
 
-## Website And Market Context
+The expected high-risk count is a probability-summed portfolio estimate. It can be decimal because it adds every merchant's predicted probability. The high-risk-band count is a hard count of merchants whose probability crossed the high-band threshold.
 
-The ClarityPay scrape now includes structured public website evidence, not just homepage value propositions.
+## Model Framing And Reliability
 
-Extracted client/customer names include:
+The model predicts a derived assignment label:
 
-- LaserAway
-- Safe Streets
-- Club Wyndham
-- Margaritaville Vacation Club
-- JetBlue
-- Diamonds International
+```text
+high dispute risk = dispute_count >= 3 OR dispute_rate >= 0.0015
+```
 
-Extracted ecosystem/funding/infrastructure partners include:
+This target is a transparent assignment heuristic because no real historical underwriting outcome label was supplied.
 
-- DR Bank
-- EXL
-- Neuberger Berman
-- Skeps
-- TransUnion
+Latest model metrics:
 
-Relevant public stats are stored with labels, context, and source URLs so they are not used as floating marketing numbers. Examples include:
+- Accuracy: **69.2%**
+- ROC-AUC: **83.3%**
 
-| Label | Value | Underwriting context |
-| --- | --- | --- |
-| Approval coverage | 85% True Approvals | Merchant financing conversion context |
-| Merchant conversion lift | 250% Increase in Conversion Rate | Merchant sales/conversion context |
-| Average sale lift | 200% Higher Average Sale Amount | Merchant transaction economics context |
-| Financing range | $50 to $50,000 | Consumer purchase/financing exposure range |
-| Term range | 6 weeks to 84 months | Repayment-duration and product-risk context |
-| Travel term range | 6 weeks to 48 months | JetBlue/travel financing context |
-| Rollout footprint | more than 125 stores | Diamonds International merchant-scale context |
-| Funding capacity | up to $1 billion | ClarityPay funding/capital purchase context |
+The model has a specific target-leakage control: `dispute_count` and `dispute_rate` are used only to create and report the target, and are excluded from model input features. Inputs are monthly volume, transaction count, volume band, country region, internal-risk flag, and registration-number availability.
 
-These facts are useful for understanding ClarityPay's BNPL merchant ecosystem, but they are public website/newsroom claims. They should not be treated as independently validated merchant-level risk data.
+Metrics should be treated as directional only, not production-ready validation. The dataset is small and the target is derived, so predicted probabilities and risk bands should support manual underwriting prioritization rather than automated approval, decline, pricing, or limit decisions.
 
-## Key Merchant Risks
+## Highest-Risk Merchants
 
-The highest-scored merchants are concentrated in Europe and include both merchants with existing high internal-risk flags and merchants whose model scores exceed their internal classifications.
+| Merchant | Risk band / probability | Key risk indicators |
+| --- | ---: | --- |
+| M011 | High / 91.6% | 6 disputes; 0.188% dispute rate; high internal-risk flag; no registration number; $98k monthly volume |
+| M017 | High / 80.0% | 4 disputes; 0.212% dispute rate; high internal-risk flag; $55k monthly volume |
+| M006 | High / 79.7% | $320k monthly volume and 8,900 transactions; 4 disputes; medium internal-risk flag |
+| M023 | High / 69.2% | $198k monthly volume; 5 disputes; high internal-risk flag |
+| M005 | High / 68.3% | 3 disputes; 0.250% dispute rate; high internal-risk flag; no registration number |
 
-| Merchant | Model probability | Internal flag | Monthly volume | Dispute rate | Key consideration |
-| --- | ---: | --- | ---: | ---: | --- |
-| M011 | 99.96% | High | $98,000 | 0.188% | Highest model score; high internal flag |
-| M017 | 98.71% | High | $55,000 | 0.212% | High score with small-volume profile |
-| M023 | 98.45% | High | $198,000 | 0.093% | High score and substantial monthly exposure |
-| M002 | 96.80% | High | $89,000 | 0.238% | Highest dispute rate among listed merchants; Americas |
-| M038 | 94.23% | Medium | $112,000 | 0.121% | Model/internal-risk mismatch |
-| M028 | 93.05% | Medium | $142,000 | 0.098% | Model/internal-risk mismatch and material volume |
-| M006 | 88.36% | Medium | $320,000 | 0.045% | Largest listed volume; high exposure despite low observed dispute rate |
-| M027 | 84.82% | Medium | $73,000 | 0.122% | Model/internal-risk mismatch |
-| M046 | 82.33% | Medium | $59,000 | 0.169% | Model/internal-risk mismatch |
-| M041 | 81.62% | High | $51,000 | 0.203% | High internal flag and elevated dispute rate |
+M006 and M023 are important exposure cases because they combine high-band model classification with larger monthly volumes.
 
-## Risk-Band Assessment
+## Medium-Risk Merchants Requiring Review
 
-- The model places **12 of 50 merchants** in the high-risk band.
-- The portfolio-level expected high-risk count is **15.68** because it sums all merchant risk probabilities, including probabilities below the high-band threshold.
-- The top displayed high-risk scores range from **81.62% to 99.96%**.
-- Five of the ten listed merchants, **M038, M028, M006, M027, and M046**, are classified as **medium** by internal risk while being assigned a **high model-risk band**. These cases warrant review of the drivers behind the model override.
-- M006 is a priority exposure case: its dispute rate is comparatively low among the listed merchants, but its **$320,000 monthly volume** and **88.36% predicted risk probability** create significant potential loss exposure.
+- M027: 61.9% probability; 3 disputes; medium internal-risk flag; $73k monthly volume
+- M028: 61.1% probability; 4 disputes; no registration number; $142k monthly volume
+- M041: 60.5% probability; 3 disputes; 0.203% dispute rate; high internal-risk flag; no registration number
+- M050: 58.3% probability; not currently assigned the heuristic target, but has medium internal-risk flag and $145k monthly volume
+- M047: 53.6% probability; not currently assigned the heuristic target, but has medium internal-risk status, no registration number, and $97k monthly volume
 
-## Red Flags
+M050 and M047 are notable model-alert cases because they are outside the current derived target definition but receive medium predicted-risk scores. These cases warrant manual review rather than being treated as confirmed high-risk merchants.
 
-1. **Internal/model classification divergence:** Five listed merchants have medium internal flags but high model-risk classifications.
-2. **High-volume high-risk merchants:** M006 ($320,000), M023 ($198,000), M028 ($142,000), and M038 ($112,000) combine high predicted risk with meaningful monthly volume.
-3. **Dispute-rate concentration:** M002 (0.238%), M017 (0.212%), and M041 (0.203%) have the highest dispute rates among the listed merchants.
-4. **Regional concentration:** Nine of the ten listed top-risk merchants are in Europe; M002 is in the Americas.
-5. **Risk not explained by dispute rate alone:** Several high-scored merchants have relatively low observed dispute rates, including M006 (0.045%) and M023 (0.093%). This suggests model outputs rely on factors beyond the provided dispute-rate field and should be reviewed for explainability.
+## Public Website Context
 
-## Model Performance And Production Caveats
+The ClarityPay scrape extracted public BNPL context, not merchant-specific performance proof.
 
-- Reported model performance is **1.00 accuracy** and **1.00 ROC-AUC**. While strong, perfect results require validation before production use.
-- The dataset size is limited to **50 merchants**. The data provided does not specify training/validation splits, out-of-sample testing, time-based validation, class balance, calibration, or leakage controls.
-- Perfect metrics may reflect a limited or non-independent evaluation population; they should not be treated as proof of production performance without independent validation.
-- The model probabilities should be assessed for **calibration**, particularly because risk-band decisions and expected-loss estimates directly depend on them.
-- The expected-loss estimate uses a fixed **1% loss-rate assumption**. It is a simplified measure and does not demonstrate merchant-specific loss severity, recovery, timing, or changes in volume.
-- The PDF excerpt is explicitly described as a **sample merchant terms and summary**. It should not be attributed to a specific portfolio merchant without verified entity linkage.
-- Website context helps describe ClarityPay's market and product environment, but it should not be used as a direct merchant-level risk label unless linked to specific merchants and independently verified.
+Client names found in public context include LaserAway, Safe Streets, Club Wyndham, Margaritaville Vacation Club, JetBlue, and Diamonds International.
+
+Ecosystem partner names found in public context include DR Bank, EXL, Neuberger Berman, Skeps, and TransUnion.
+
+Relevant public stats were retained only with context and source URLs. Examples include approval coverage, merchant conversion lift, average sale lift, financing ranges, term ranges, store rollout footprint, transaction scale, and funding capacity. These are useful for understanding ClarityPay's merchant-financing ecosystem, but they are not treated as independently verified underwriting facts.
+
+## Key Red Flags
+
+1. High internal-risk flags: M011, M017, M023, M005, and M041.
+2. Missing registration numbers: M011, M005, M028, M041, and M047.
+3. Observed dispute activity: the highest-risk cases have 3 to 6 disputes.
+4. High exposure combined with dispute counts: M006 and M023 present potentially material exposure despite dispute rates below 0.15%, because the heuristic triggers on either dispute count or rate.
+5. Elevated model scores without current target assignment: M050 and M047 require monitoring and review for emerging risk.
 
 ## Recommended Underwriting Posture
 
-- Apply enhanced review to all **12 high-band merchants**, prioritizing high-score/high-volume merchants.
-- Investigate model-versus-internal-flag discrepancies before relying solely on model classification.
-- Validate model performance on an independent, time-separated sample and perform probability calibration testing.
-- Treat the reported expected loss as a directional portfolio estimate pending confirmation of the fixed 1% loss-rate assumption and model calibration.
+Place the five high-band merchants into enhanced review, with priority to M011, M017, M006, M023, and M005. Verify registration and legal-entity details for merchants without a registration number, especially where missing registration combines with high internal-risk flags or elevated dispute activity.
+
+Review dispute drivers, transaction and fulfillment controls, customer disclosures, refund practices, and relevant terms for merchants with three or more disputes. Monitor medium-band merchants, particularly M050 and M047, as potential early-warning cases.
+
+## Production Caveats
+
+This output should not be used as a standalone production underwriting decision engine. The small sample, heuristic-derived target, and directional model metrics limit confidence in probability calibration and generalization. The target-leakage control appropriately excludes dispute count and dispute rate from model features, but this does not remove the need for independent out-of-sample validation, stability testing, threshold governance, and ongoing performance monitoring before deployment.

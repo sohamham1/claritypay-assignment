@@ -25,6 +25,28 @@ def _report_context(pipeline_output: dict[str, Any]) -> dict[str, Any]:
     collated = pipeline_output.get("collated", {})
     first_row = (collated.get("rows") or [{}])[0]
     return {
+        "model_framing": {
+            "target": (
+                "target_high_dispute_risk is an assignment heuristic: 1 when "
+                "dispute_count >= 3 or dispute_rate >= 0.0015."
+            ),
+            "target_leakage_control": (
+                "dispute_count and dispute_rate are retained for reporting and "
+                "target creation, but excluded from model input features."
+            ),
+            "model_input_features": [
+                "monthly_volume",
+                "transaction_count",
+                "volume_band",
+                "country_region",
+                "internal_risk_flag",
+                "has_registration_number",
+            ],
+            "caveat": (
+                "The dataset is small and the target is derived, so model metrics "
+                "are directional rather than production-ready evidence."
+            ),
+        },
         "portfolio": pipeline_output.get("portfolio", {}),
         "model_metrics": pipeline_output.get("model", {}).get("metrics", {}),
         "source_summaries": collated.get("source_summaries", {}),
@@ -49,7 +71,9 @@ def build_underwriting_prompt(pipeline_output: dict[str, Any]) -> str:
         "You are writing a concise underwriting report for a BNPL risk team.\n"
         "Use only the data provided below. Do not invent facts.\n"
         "Explain key merchant risks, model risk bands, portfolio-level risk, "
-        "red flags, and production caveats.\n\n"
+        "red flags, and production caveats.\n"
+        "Mention the target-leakage control and small-data caveat when discussing "
+        "model reliability.\n\n"
         f"Pipeline output:\n{compact_payload}\n"
     )
 

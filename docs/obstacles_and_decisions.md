@@ -102,6 +102,16 @@ This document records material implementation decisions, external-source limitat
 
 **Result:** The model is intentionally simple, explainable, and appropriate for the assignment scope.
 
+## Target Leakage In Initial Model
+
+**Issue:** The initial model used `dispute_count` and `dispute_rate` as input features while the target label was also derived from those same fields.
+
+**Why it matters:** This is target leakage. It can make model metrics look artificially strong because the model is effectively given the answer during training.
+
+**Decision:** Keep dispute fields in the dataset for reporting and target construction, but exclude them from model inputs. Use non-leaky features such as volume, transaction count, country region, internal risk flag, and registration-number presence.
+
+**Result:** The model is more honest and defensible. Metrics may look less perfect, but they better reflect the limited predictive signal in the assignment data.
+
 ## Model Feature Encoding
 
 **Issue:** Plain Python feature dictionaries need to be converted into numeric model input.

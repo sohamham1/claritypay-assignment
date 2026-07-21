@@ -27,11 +27,15 @@ The model and portfolio summary are intentionally simple, but they connect merch
 - Companies House is skipped because it is optional and requires credentials.
 - The PDF is processed with an async wrapper as a lightweight stand-in for a production background job.
 - The model target is derived from dispute count and dispute rate because no real historical underwriting outcome label is provided.
+- Dispute count and dispute rate are kept for reporting and target creation, but excluded from model inputs to avoid target leakage.
+- Model input features are monthly volume, transaction count, volume band, country region, internal risk flag, and registration-number presence.
 - OpenAI report generation uses `gpt-5.6-terra` by default and reads `OPENAI_API_KEY` from the local `.env` file or environment. With the key configured, the pipeline generates the underwriting report locally under `outputs/`.
 
 ## Tradeoffs
 
 - The model is simple by design. Logistic regression is easier to explain and more appropriate for a small dataset than a complex model.
+- The model avoids target leakage by not training on the same dispute fields used to define the target label.
+- The LLM report prompt includes the target heuristic, target-leakage control, non-leaky model inputs, and small-data caveat so the generated report reflects the model governance choices.
 - The ClarityPay scraper crawls public site and newsroom pages, but parsing is conservative because public website HTML can change.
 - Public stats are extracted only when they are relevant to BNPL merchant underwriting and can be stored with context, such as approval coverage, merchant conversion impact, financing range, rollout footprint, or funding capacity.
 - Source fallback/status fields are preserved instead of hidden so downstream users can see when enrichment was unavailable.

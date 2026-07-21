@@ -29,6 +29,9 @@ def test_llm_prompt_includes_pipeline_output():
     assert "JetBlue" in prompt
     assert "DR Bank" in prompt
     assert "85% True Approvals" in prompt
+    assert "target-leakage" in prompt.lower()
+    assert "excluded from model input features" in prompt
+    assert "has_registration_number" in prompt
 
 
 def test_missing_openai_key_saves_prompt_and_placeholder_report(tmp_path, monkeypatch):

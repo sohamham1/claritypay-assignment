@@ -14,7 +14,7 @@ Codex generated the Python implementation, tests, documentation drafts, and repo
 - The asynchronous PDF text extraction logic.
 - The ClarityPay public-site scraper and multi-page crawl behavior.
 - The collated underwriting view.
-- Feature engineering for dispute rate, volume band, country region, and internal risk flag.
+- Feature engineering for dispute-rate target creation, volume band, country region, internal risk flag, and registration-number presence.
 - The logistic regression model and portfolio-level risk aggregation.
 - The LLM report-generation flow, including prompt creation, credentialed generation, and no-key fallback behavior.
 - Unit tests for ingestion, validation, scraping, features, model, portfolio aggregation, reporting, and submission shape.
@@ -61,6 +61,8 @@ Several implementation details changed after inspection and testing:
 - `pdfplumber` extracted the sample PDF text in a noisy order, so the implementation prefers `pypdf` for this file and keeps `pdfplumber` as fallback.
 - The initial ClarityPay scraper under-extracted public evidence. It was revised to extract client names, ecosystem partners, and only BNPL-underwriting-relevant public stats with source context.
 - The first model feature encoding approach was revised to `DictVectorizer`, which better fits list-of-dictionary feature rows.
+- A target-leakage risk was found in the initial model because dispute count and dispute rate helped define the target. The model was revised so those fields remain available for reporting and target creation but are excluded from model inputs.
+- The LLM report prompt was revised to include model-framing context, including the target heuristic, target-leakage control, non-leaky model inputs, and small-data caveat.
 
 ## Verification
 
@@ -69,7 +71,7 @@ Codex ran the test suite repeatedly during development and revised the code when
 At the time this document was updated, the project test suite passed:
 
 ```text
-41 tests passed
+43 tests passed
 ```
 
 The full pipeline was also run locally with a real REST Countries API key set through an environment variable. That run enriched all merchant countries successfully. OpenAI report generation now reads `OPENAI_API_KEY` from the ignored local `.env` file and uses `gpt-5.6-terra` by default. When the pipeline is run with that key present, it generates the underwriting report locally under `outputs/`.
